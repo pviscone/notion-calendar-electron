@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { app, BrowserWindow, Notification, ipcMain } = require("electron");
+const { app, BrowserWindow, Notification, ipcMain, Tray, Menu } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -69,11 +69,59 @@ function playNotificationSound() {
   tryPlay("aplay", [soundPath]);
 }
 
+let win;
+let tray;
+let isQuitting = false;
+
+const trayIconPath = path.join(__dirname, "icon.png");
+const startInTray = !process.argv.includes("--no-start-in-tray");
+
+function createTray() {
+  if (tray) {
+    return tray;
+  }
+  tray = new Tray(trayIconPath);
+  tray.setToolTip("Notion Calendar");
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: "Show",
+      click: () => {
+        if (win) {
+          win.show();
+          win.focus();
+        }
+      },
+    },
+    {
+      label: "Quit",
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+  tray.setContextMenu(contextMenu);
+  tray.on("click", () => {
+    if (!win) {
+      return;
+    }
+    if (win.isVisible()) {
+      win.hide();
+    } else {
+      win.show();
+      win.focus();
+    }
+  });
+  return tray;
+}
+
 app.whenReady().then(() => {
   console.log("App is ready");
   console.log("App on ready event");
 
-  let win = new BrowserWindow({
+  createTray();
+
+  win = new BrowserWindow({
     width: 800,
     height: 600,
     autoHideMenuBar: true,
@@ -86,6 +134,10 @@ app.whenReady().then(() => {
   });
 
   win.loadURL("https://calendar.notion.so/", { userAgent: browserUserAgent });
+
+  if (startInTray) {
+    win.hide();
+  }
 
   win.webContents.session.setPermissionRequestHandler(
     (webContents, permission, callback) => {
@@ -142,6 +194,22 @@ app.whenReady().then(() => {
       return { action: "deny" };
     });
   });
+
+  win.on("close", (event) => {
+    if (isQuitting) {
+      return;
+    }
+    event.preventDefault();
+    win.hide();
+  });
+});
+
+app.on("before-quit", () => {
+  isQuitting = true;
+});
+
+app.on("window-all-closed", (event) => {
+  event.preventDefault();
 });
 
 ipcMain.on("notify", (event, payload) => {

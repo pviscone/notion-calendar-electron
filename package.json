@@ -14,8 +14,7 @@
     "notion-calendar-electron": "./index.js"
   },
   "devDependencies": {
-    "electron": "^29.0.1",
-    "electron-builder": "^24.12.0"
-  },
-  "dependencies": {}
+    "electron": "^40.1.0",
+    "electron-builder": "^26.7.0"
+  }
 }

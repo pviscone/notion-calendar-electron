@@ -13,12 +13,32 @@ const browserUserAgent =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 app.userAgentFallback = browserUserAgent;
 
-const soundAssetPath = path.join(__dirname, "assets", "notification.wav");
 const soundTempPath = path.join(os.tmpdir(), "notion-calendar-electron.wav");
+
+function getSoundAssetPath() {
+  const candidates = [];
+  if (app.isPackaged) {
+    candidates.push(
+      path.join(process.resourcesPath, "app.asar.unpacked", "assets", "notification.wav")
+    );
+    candidates.push(
+      path.join(process.resourcesPath, "app", "assets", "notification.wav")
+    );
+  }
+  candidates.push(path.join(__dirname, "assets", "notification.wav"));
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
 
 function getSoundSourcePath() {
   try {
-    if (!fs.existsSync(soundAssetPath)) {
+    const soundAssetPath = getSoundAssetPath();
+    if (!soundAssetPath || !fs.existsSync(soundAssetPath)) {
       return null;
     }
     const header = fs.readFileSync(soundAssetPath, { encoding: null, length: 12 });

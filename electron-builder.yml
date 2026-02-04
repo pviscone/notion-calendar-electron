@@ -3,6 +3,8 @@ linux:
   target:
     - target: tar.xz
       arch: [x64]
+asarUnpack:
+  - assets/**
 files:
   - "**/*"
   - "!**/notion-calendar-electron"

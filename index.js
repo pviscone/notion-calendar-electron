@@ -9,9 +9,26 @@ app.commandLine.appendArgument("disable-gpu");
 app.commandLine.appendSwitch("enable-features", "Notifications,NotificationTriggers");
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 
+const chromeMajor = (process.versions.chrome || "120.0.0.0").split(".")[0];
 const browserUserAgent =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeMajor}.0.0.0 Safari/537.36`;
 app.userAgentFallback = browserUserAgent;
+
+// Consistent client hints matching browserUserAgent; Chromium derives the real
+// Sec-CH-UA* headers from its own brand list (Chromium/Electron), which Notion's
+// browser compatibility check rejects.
+const clientHintHeaders = {
+  "User-Agent": browserUserAgent,
+  "Sec-CH-UA": `"Not_A Brand";v="8", "Chromium";v="${chromeMajor}", "Google Chrome";v="${chromeMajor}"`,
+  "Sec-CH-UA-Mobile": "?0",
+  "Sec-CH-UA-Platform": `"Windows"`,
+  "Sec-CH-UA-Platform-Version": `"10.0.0"`,
+  "Sec-CH-UA-Full-Version": `"${chromeMajor}.0.0.0"`,
+  "Sec-CH-UA-Full-Version-List": `"Not_A Brand";v="8.0.0.0", "Chromium";v="${chromeMajor}.0.0.0", "Google Chrome";v="${chromeMajor}.0.0.0"`,
+  "Sec-CH-UA-Arch": `"x86"`,
+  "Sec-CH-UA-Bitness": `"64"`,
+  "Sec-CH-UA-Model": `""`,
+};
 
 const soundTempPath = path.join(os.tmpdir(), "notion-calendar-electron.wav");
 
@@ -151,6 +168,19 @@ app.whenReady().then(() => {
       autoplayPolicy: "no-user-gesture-required",
       nativeWindowOpen: true,
     }
+  });
+
+  const ses = win.webContents.session;
+  ses.setUserAgent(browserUserAgent);
+  ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    const headers = {};
+    for (const name of Object.keys(details.requestHeaders)) {
+      if (!/^sec-ch-ua/i.test(name) && name.toLowerCase() !== "user-agent") {
+        headers[name] = details.requestHeaders[name];
+      }
+    }
+    Object.assign(headers, clientHintHeaders);
+    callback({ requestHeaders: headers });
   });
 
   win.loadURL("https://calendar.notion.so/", { userAgent: browserUserAgent });

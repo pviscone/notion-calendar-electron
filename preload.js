@@ -1,7 +1,8 @@
 const { ipcRenderer } = require("electron");
 
+const CHROME_MAJOR = (/Chrome\/(\d+)/.exec(navigator.userAgent) || [null, "120"])[1];
 const BROWSER_UA =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROME_MAJOR}.0.0.0 Safari/537.36`;
 const BROWSER_PLATFORM = "Win32";
 
 const OriginalNotification = window.Notification;
@@ -81,16 +82,39 @@ try {
             get: () => BROWSER_UA,
             configurable: true,
         });
-        if (navigator.userAgentData) {
-            Object.defineProperty(navigator.userAgentData, "platform", {
-                get: () => "Windows",
-                configurable: true,
-            });
-            Object.defineProperty(navigator.userAgentData, "platformVersion", {
-                get: () => "10.0.0",
-                configurable: true,
-            });
-        }
+        const userAgentData = {
+            brands: [
+                { brand: "Not_A Brand", version: "8" },
+                { brand: "Chromium", version: CHROME_MAJOR },
+                { brand: "Google Chrome", version: CHROME_MAJOR },
+            ],
+            mobile: false,
+            platform: "Windows",
+            platformVersion: "10.0.0",
+            getHighEntropyValues(hints) {
+                return Promise.resolve({
+                    architecture: "x86",
+                    bitness: "64",
+                    brands: this.brands,
+                    fullVersionList: this.brands.map((b) => ({
+                        brand: b.brand,
+                        version: `${CHROME_MAJOR}.0.0.0`,
+                    })),
+                    mobile: false,
+                    model: "",
+                    platform: "Windows",
+                    platformVersion: "10.0.0",
+                    uaFullVersion: `${CHROME_MAJOR}.0.0.0`,
+                });
+            },
+            toJSON() {
+                return { brands: this.brands, mobile: false, platform: "Windows" };
+            },
+        };
+        Object.defineProperty(navigator, "userAgentData", {
+            get: () => userAgentData,
+            configurable: true,
+        });
     }
 } catch (error) {
     // Ignore platform spoofing errors
